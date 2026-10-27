@@ -1,11 +1,11 @@
 ---
 name: review-pr
-description: Review a contributor's pull request thoroughly and post inline comments as a pending (unsubmitted) GitHub review. Use when asked to review a PR, draft review comments, or follow up on a PR that has had review rounds already. Usage: /review-pr <PR_NUMBER>
+description: Review a contributor's pull request thoroughly, walk the user through it in plain language, and after approval post the inline comments and submit the review as "request changes" with a short note tagging the author. Use when asked to review a PR, draft review comments, or follow up on a PR that has had review rounds already. Usage: /review-pr <PR_NUMBER>
 ---
 
 # Review PR
 
-Review a contributor's pull request and post inline comments as a **pending review**, so the user can inspect everything in GitHub before the contributor sees it.
+Review a contributor's pull request. First give the user a plain-language briefing and the drafted inline comments to read. Only after the user approves, post the inline comments and submit the review as **request changes** with a short, basic note tagging the author.
 
 ## Setup
 
@@ -19,9 +19,22 @@ Find the repo with `gh repo view --json nameWithOwner -q .nameWithOwner` (or use
    - **Concerns**: design choices, edge cases, or patterns to address before merge.
    - **Minor**: small suggestions, style, non-blocking improvements.
 3. Drafts inline comments in a warm, direct tone. Acknowledge the intent of the work, then be clear and specific about the issue.
-4. Shows the drafts to the user for approval.
-5. Posts the approved comments as a single pending review.
-6. Does NOT submit the review or write a summary. The user does both in GitHub.
+4. Shows the user the briefing (see below) and the drafted inline comments. Waits for approval.
+5. On approval, posts the inline comments and submits the review as **request changes** in one call, with the short author note as the review body.
+6. The user adds any longer summary comment themselves, in GitHub.
+
+## The briefing (shown in chat before anything is posted)
+
+Write it for someone who has not read the diff and does not want jargon. Short sentences, everyday words. If a technical term is unavoidable, explain it in a few words.
+
+- **What this PR does**: two or three sentences on what changes for a user of the product.
+- **Blockers**: things that must change before merge. Say what goes wrong and who it affects. Write "none" if there are none.
+- **Risks**: things that probably work but could bite later, or were not tested (for example, no real-hardware test).
+- **Worth fixing, not blocking**: smaller notes and suggestions.
+- **What's good**: anything well executed or a real improvement, said specifically. Skip this section only if there is truly nothing.
+- **Not verified**: what you did not build, run, or test, so the user knows how much weight the review carries.
+
+Then list the drafted inline comments, each with file, line, severity, and the exact text that would be posted.
 
 ## Tone for inline comments
 
@@ -34,24 +47,28 @@ Find the repo with `gh repo view --json nameWithOwner -q .nameWithOwner` (or use
 
 ## Process
 
-1. `gh pr view <PR_NUMBER> --repo <owner>/<repo>` for metadata and the head SHA.
+1. `gh pr view <PR_NUMBER> --repo <owner>/<repo>` for metadata, author login, and the head SHA.
 2. `gh pr diff <PR_NUMBER> --repo <owner>/<repo>` for the full diff.
 3. Fetch the PR's version of each changed file through the GitHub API to get exact line numbers.
 4. Read each file fully for context, not just the changed lines.
 5. Check for an existing pending review from you on this PR. If one exists, tell the user before continuing.
-6. Draft all inline comments and show them to the user. Wait for approval.
-7. Post as one pending review:
+6. Show the briefing and the drafted inline comments. Wait for approval. Apply any edits the user asks for and show the changed comments again if the change is more than a wording tweak.
+7. Post the inline comments and submit in one call, with `event` set to `REQUEST_CHANGES` and a `commit_id` of the head SHA you reviewed:
    `gh api repos/<owner>/<repo>/pulls/<PR_NUMBER>/reviews --method POST --input <json_file>`
-   Leave out the `event` field so the review stays pending.
-8. Confirm the posted comment count matches the draft.
-9. Tell the user to open GitHub, Files changed, to inspect and submit in their own words.
+   The review body is only this, with the author's login filled in:
+   `@<author> thanks for the PR. I've reviewed it and left inline comments. It's ready for you to make changes whenever you get a chance.`
+   Do not add a longer summary. The user writes that themselves if they want one.
+8. Confirm the posted comment count matches the draft and that the review state is `CHANGES_REQUESTED`. Give the user the link to the review.
+
+If the review has no blockers or concerns (only minor notes or praise), tell the user and ask whether to submit as `COMMENT` or `APPROVE` instead of request changes. Never approve unless the user says so.
 
 ## What NOT to do
 
-- Do not submit the review.
-- Do not draft or post an overall summary.
-- Do not post anything before the user approves the drafts.
+- Do not post or submit anything before the user approves the drafts.
+- Do not write a long summary in the review body. Keep it to the short author note.
+- Do not use technical jargon in the briefing.
 - Do not blur severity levels. Be clear what is a bug and what is a suggestion.
+- Do not claim you tested something you only read.
 
 ## After one or two unresolved review rounds
 
